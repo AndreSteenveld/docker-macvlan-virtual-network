@@ -53,10 +53,10 @@ $ VBoxManage createvm \
 $ VBoxManage unregistervm --delete client 
 
 # Configuring the network hardware
-$ VBoxManage modifyvm
-    --name client
-    --nic1 hostonly
-    --intnet2 internal-network
+$ VBoxManage modifyvm client \
+    --nic1 hostonly \
+    --nic2 intnet \
+    --intnet2 "internal-network"
 
 # The VBox documentation seems to suggest that new internal networks are configured
 # and created as needed. When we are going to run all the machines we'll add a DHCP
