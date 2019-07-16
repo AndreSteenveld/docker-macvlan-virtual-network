@@ -26,7 +26,7 @@ Firstly we are going to create the run off the mill linux client machine, the st
 
 As it turns out setting up a preseed enviroment is really easy but all the tools are as user friendly as you'd expect from a debian tooling. I want to get cracking with the networking first so I'm just going to grab a ready to go Ubuntu image.
 
-1. To get a decent image I've downloaded the Ubuntu server image from: ()[https://www.osboxes.org/ubuntu-server/#ubuntu-server-1804-vbox]
+1. To get a decent image I've downloaded the Ubuntu server image from: [link](https://www.osboxes.org/ubuntu-server/#ubuntu-server-1804-vbox)
     
     ```
     Information attached to the image:
@@ -148,7 +148,7 @@ Component: ConsoleWrap
 Interface: IConsole {872da645-4a9b-1727-bee2-5585105b9eed}
 ```
 
-A quick search lead me to the following stackoverflow post (virtualbox Raw-mode is unavailable courtesy of Hyper-V windows 10)[https://stackoverflow.com/questions/50053255/virtualbox-raw-mode-is-unavailable-courtesy-of-hyper-v-windows-10]. And this thread on the virual box forum (link)[https://forums.virtualbox.org/viewtopic.php?f=6&t=87237]. Summarizing the common thread seems to be to disable a option called "hypervisorlaunchtype".
+A quick search lead me to the following stackoverflow post "[virtualbox Raw-mode is unavailable courtesy of Hyper-V windows 10](https://stackoverflow.com/questions/50053255/virtualbox-raw-mode-is-unavailable-courtesy-of-hyper-v-windows-10)". And this thread on the virual box forum [link](https://forums.virtualbox.org/viewtopic.php?f=6&t=87237). Summarizing the common thread seems to be to disable a option called "hypervisorlaunchtype".
 
 ```bash
 # In a privileged shell run, and reboot
@@ -161,7 +161,7 @@ $ bcdedit
 There seems to be a significant downside to this though; which is that docker desktop will fail to start using the default configuration. Even for this there seem to but multiple solutions;
 
 1. Ignore this situation because we can do our experiment and then re-enable it
-2. Run the docker deamon somewhere else, although it doesn't seem possible to configure docker desktop using it's gui the commandline tooling seems perfectly happy to do this [ (1)[https://medium.com/@peorth/using-docker-with-virtualbox-and-windows-10-b351e7a34adc] ]
+2. Run the docker deamon somewhere else, although it doesn't seem possible to configure docker desktop using it's gui the commandline tooling seems perfectly happy to do this [[1](https://medium.com/@peorth/using-docker-with-virtualbox-and-windows-10-b351e7a34adc)]
 3. Write a version of this experiment using Hyper-V
 
 ### Installing linux and configuring the client machine
@@ -235,7 +235,7 @@ The work contained in this repository is licensed [CC BY-SA 4.0](https://creativ
 
 # Sources and references
 
-* Diagram(s) drawn using [](http://draw.io/)
-* Documentation about the VirtualBox commandline [](https://www.virtualbox.org/manual/)
-* Ubuntu 16.04 Desktop unattended installation [](http://gyk.lt/ubuntu-16-04-desktop-unattended-installation/)
-* Virtualbox: Creation and controlling virtual maschines from commandline [](https://michlstechblog.info/blog/virtualbox-creating-and-controling-virtual-maschines-from-command-line/)
+* [Diagram(s) drawn using](http://draw.io/)
+* [Documentation about the VirtualBox commandline](https://www.virtualbox.org/manual/)
+* [Ubuntu 16.04 Desktop unattended installation(http://gyk.lt/ubuntu-16-04-desktop-unattended-installation/)
+* [Virtualbox: Creation and controlling virtual maschines from commandline](https://michlstechblog.info/blog/virtualbox-creating-and-controling-virtual-maschines-from-command-line/)
