@@ -24,15 +24,7 @@ Firstly we are going to create the run off the mill linux client machine, the st
 
 ### Create a linux image
 
-To create a linux image we need an linux environment first so we are going to start up a clean ubuntu image using docker. This step can obviously be skipped if you're on the correct environment ;). Other things to make sure are; docker desktop is running and your drives are shared.
-
-```bash
-# Because tty is a bit of a hassle on windows make sure to use winpty (this works in bash)
-# Running a container with a mount to the current directory in other shells on windows check: https://stackoverflow.com/a/41489151/95019
-$ winpty docker run --rm -it -v "/$(pwd -W):/host" ubuntu:18.10 //bin/bash
-```
-
-Suddenly... intermission! As it turns out setting up a preseed enviroment is really easy but all the tools are as user friendly as you'd expect from a debian tooling. I want to get cracking with the networking first so I'm just going to grab a ready to go Ubuntu image.
+As it turns out setting up a preseed enviroment is really easy but all the tools are as user friendly as you'd expect from a debian tooling. I want to get cracking with the networking first so I'm just going to grab a ready to go Ubuntu image.
 
 1. To get a decent image I've downloaded the Ubuntu server image from: ()[https://www.osboxes.org/ubuntu-server/#ubuntu-server-1804-vbox]
     
@@ -110,12 +102,32 @@ $ VBoxManage list hostonlyifs
 # If this list is empty a host network can be created by running
 $ VBoxManage hostonlyif create 
 
-# Assuming the default host network here, YMMV
+# It also seems that the default host only network doesn't have a DHCP
+# server set up out of the box. When running virtual machines in this
+# network it does help to set this up, figuring out the IP and using that
+# to connect to the machine.
+#
+# Adding a DHCP server to the default host-only network
+$ VBoxManage hostonlyif ipconfig "VirtualBox Host-Only Ethernet Adapter" --dhcp
+
+# Assuming the default host network here, YMMV.
 $ VBoxManage modifyvm client \
     --nic1 hostonly \
     --hostonlyadapter1 "VirtualBox Host-Only Ethernet Adapter" \
     --nic2 intnet \
     --intnet2 "internal-network"
+
+# On a second note; because the images from osbox are pretty bare bone we will 
+# need some internet connection to install all the applications we need. 
+# (openssh, telnet, vim etc) and for none specific reason either Ubuntu, the 
+# virtual machine or a combination of both prefer the outgoing connection to be
+# on the first NIC.
+$ VBoxManage modifyvm client \
+    --nic1 nat \
+    --nic2 hostonly \
+    --hostonlyadapter2 "VirtualBox Host-Only Ethernet Adapter" \
+    --nic3 intnet \
+    --intnet3 "internal-network"
 
 # The VBox documentation seems to suggest that new internal networks are 
 # configured and created as needed. When we are going to run all the machines 
@@ -154,6 +166,45 @@ There seems to be a significant downside to this though; which is that docker de
 
 ### Installing linux and configuring the client machine
 
+```bash
+# When first booting up a fresh osboxes-box are kind of outdated and Ubuntu has
+# a deamon which automagically installs updates, this is fine but it does take
+# while to complete all the updates. Monitor the progress and sudo yourself and
+# track the progress by running;
+$ tail -f /var/log/apt/history.log
+```
+
+```bash
+# After all the installs have been done make sure to get a root shell (ignore 
+# all nasty configuration for now) and we can install all the stuff we need and
+# configure the network devices.
+$ apt-get install openssh-server 
+
+# Setting up the openssh deamon
+$ systemctl enable ssh && system start ssh
+
+#
+# Configuring the network devices using netplan, the osboxes look like they
+# have some pre applied magic although it looks safe to just overwrite the 
+# netplan configurtaion with this
+#
+$ tee /etc/netplan/50-cloud-init.yaml <<EOF
+network:
+    ethernets:
+        enp0s3:
+            dhcp4: true
+        enp0s8:
+            dhcp4: true
+        enp0s9:
+            addresses: [192.168.1.1/24]
+    version: 2
+EOF
+
+$ netplan apply
+
+# Use `ip a` to figure out the ip for our host network (enp0s8) and ssh in to it from your host
+```
+
 ## Creating the docker host
 
 ```bash
@@ -185,6 +236,6 @@ The work contained in this repository is licensed [CC BY-SA 4.0](https://creativ
 # Sources and references
 
 * Diagram(s) drawn using [](http://draw.io/)
-* Documentation about the VirtualBox commandline [](https://www.virtualbox.org/manual/ch08.html)
+* Documentation about the VirtualBox commandline [](https://www.virtualbox.org/manual/)
 * Ubuntu 16.04 Desktop unattended installation [](http://gyk.lt/ubuntu-16-04-desktop-unattended-installation/)
 * Virtualbox: Creation and controlling virtual maschines from commandline [](https://michlstechblog.info/blog/virtualbox-creating-and-controling-virtual-maschines-from-command-line/)
