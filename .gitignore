@@ -1,0 +1,3 @@
+client-vm/*
+docker-vm/*
+!.gitkeep
