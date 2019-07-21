@@ -156,6 +156,9 @@ $ bcdedit //set hypervisorlaunchtype off
 
 # Validate the setting by running
 $ bcdedit
+
+# To enable the setting (you'd expect on...)
+$ bcdedit //set hypervisorlaunchtype auto
 ```
 
 There seems to be a significant downside to this though; which is that docker desktop will fail to start using the default configuration. Even for this there seem to but multiple solutions;
@@ -207,17 +210,123 @@ $ netplan apply
 
 ## Creating the docker host
 
+1. Download the osboxes image of debian [here](https://sourceforge.net/projects/osboxes/files/v/vb/14-D-b/9.7/9764.7z/download). 
+    ```
+    Username: osboxes
+    Password: osboxes.org
+    Root Account Password: osboxes.org
+    VB Guest Additions & VMware Tools: Installed
+    Keyboard Layout: US (Qwerty)
+    VMware Compatibility: Version 10+
+    ```
+
+2. Then unpack it to the docker-vm directory and name it something nice
+    ```bash
+    $ 7z e -bd -bt -o./docker-vm/ ~/Downloads/9764.7z '64bit/Debian 9.7 (64bit).vdi' && mv ./docker-vm/Debian\ 9.7\ \(64bit\).vdi ./docker-vm/debian-9.7.vdi
+    ```
+
 ```bash
 #
 # Creating the docker host will follow the client creation roughly as it is simply a 
-# linux machine as well. The noteable difference for this machine is that we'd allow
-# the internal-network nic (2) in promiscues mode.
+# linux machine as well.
 #
+$ VBoxManage createvm \
+    --name docker \
+    --ostype linux_64 \
+    --basefolder $( realpath ./docker-vm/ ) \
+    --register \
+    --default 
+
+$ VBoxManage storagectl docker \
+    --name docker-disk-controller \
+    --add sata \
+    --portcount 2 \
+    --bootable on
+
+$ VBoxManage storageattach docker \
+    --storagectl docker-disk-controller \
+    --port 0 \
+    --type hdd \
+    --medium $( realpath ./docker-vm/debian-9.7.vdi )
+
+$ VBoxManage modifyvm docker \
+    --nic1 nat \
+    --nic2 hostonly \
+    --hostonlyadapter2 "VirtualBox Host-Only Ethernet Adapter" \
+    --nic3 intnet \
+    --intnet3 "internal-network"
 ```
 
 ### Installing linux and configuring the docker machine
 
+After doing some research on how to configure a promiscues network interface using netplan it turned out that it wasn't easily possible. Although it seems that ip can be used to configure most of this it seems like a hack not aiding in the maintainability of the system and violating "least suprises"-rule. To figure out if would be a viable solutiuon I've gone for debian on this machine.
+
+The least hackish solution I could find was "(setting up networkd-dispatcher)[https://askubuntu.com/a/1037955/279346]".
+
+For now we are going with the debian image for this machine and use the accompinaing network tooling to configure this machine. 
+
+```bash
+#
+# Unfortunatly this box comes with a window system so we'll just deal with 
+# that, using the known credential get to a terminal.
+#
+$ su - # to get a root shell
+
+# Make everything up to date
+$ apt-get update && apt-get upgrade
+
+# Install openssh-server so we can copy and paste the commands from the
+# docker documentation
+$ apt-get install openssh-server
+$ service ssh start
+
+# How to install docker is directly lifted from the docker documentation. For
+# now we're going with the straight forward install using the docker registry.
+# https://docs.docker.com/install/linux/docker-ce/debian/
+$ apt-get install \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg2 \
+    software-properties-common
+
+$ curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+
+$ add-apt-repository \
+   "deb [arch=amd64] https://download.docker.com/linux/debian \
+   $(lsb_release -cs) \
+   stable"
+
+$ apt-get update && apt-get install docker-ce docker-ce-cli containerd.io
+
+# Run the hello world verification
+$ docker run hello-world
+
+#
+# Configure the NICs, it apppears that with the image the NAT and the host only
+# NICs are already configured out of the box as they both use DHCP which seems
+# to be pretty standard. NIC3 (enp0s9) has to be configured in promiscues mode.
+#
+
+# The non persistent way to get this working would be (in a root shell) the
+# down side here obviously is that you'd need to do this every time the NIC
+# cycles.
+$ ip link set enp0s9 promisc on
+
+# Persistently setting promiscuous on a device
+$ tee /etc/network/interfaces.d/enp0s9 <<EOF
+auto enp0s9
+iface enp0s9 inet manual
+        up ip link set $IFACE promisc on
+EOF
+
+# Now reboot your machine for the changes to take effect, runing `ip a` should
+# list enp0s9 in PROMISC mode.
+```
+
 ## Creating the echo-chamber
+
+
 
 # Validation
 With all the machines running we are going to log in to our client machine and then bounce some data off the docker container.
@@ -239,3 +348,7 @@ The work contained in this repository is licensed [CC BY-SA 4.0](https://creativ
 * [Documentation about the VirtualBox commandline](https://www.virtualbox.org/manual/)
 * [Ubuntu 16.04 Desktop unattended installation(http://gyk.lt/ubuntu-16-04-desktop-unattended-installation/)
 * [Virtualbox: Creation and controlling virtual maschines from commandline](https://michlstechblog.info/blog/virtualbox-creating-and-controling-virtual-maschines-from-command-line/)
+
+Some useful resources about configuring network devices in debian:
+* https://unix.stackexchange.com/questions/128439/good-detailed-explanation-of-etc-network-interfaces-syntax
+* 
