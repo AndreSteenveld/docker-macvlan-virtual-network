@@ -243,6 +243,8 @@ $ VBoxManage storagectl docker \
     --portcount 2 \
     --bootable on
 
+# Ended up just installing debian 10, getting a ready to go image is to much of
+# a hassle.
 $ VBoxManage storageattach docker \
     --storagectl docker-disk-controller \
     --port 0 \
@@ -253,7 +255,14 @@ $ VBoxManage modifyvm docker \
     --nic1 nat \
     --nic2 hostonly \
     --hostonlyadapter2 "VirtualBox Host-Only Ethernet Adapter" \
+
+# I've been having some weird crashes and it didn't really seem to work all the
+# time. I've found some documentation that seem to take care of this;
+# https://github.com/jpetazzo/pipework#virtualbox
+$ VBoxManage modifyvm docker \
     --nic3 intnet \
+    --nictype3 Am79C973 \
+    --nicpromisc3 allow-all \
     --intnet3 "internal-network"
 ```
 
@@ -302,6 +311,18 @@ $ apt-get update && apt-get install docker-ce docker-ce-cli containerd.io
 # Run the hello world verification
 $ docker run hello-world
 
+# We also need docker compose, the easiest way to install it would be to use
+# the docker compose container. (see the notes under "Alternative Install Options")
+# Source: https://docs.docker.com/compose/install/
+$ su -c "curl -L --fail https://github.com/docker/compose/releases/download/1.24.1/run.sh -o /usr/local/bin/docker-compose"
+$ su -c "chmod +x /usr/local/bin/docker-compose"
+
+# Now run docker compose to validate to pull in the images and validate the install
+$ docker-compose --help
+
+# Making sure the debian user can run the docker contianers
+$ usermod -a -G docker debian
+
 #
 # Configure the NICs, it apppears that with the image the NAT and the host only
 # NICs are already configured out of the box as they both use DHCP which seems
@@ -317,7 +338,13 @@ $ ip link set enp0s9 promisc on
 $ tee /etc/network/interfaces.d/enp0s9 <<EOF
 auto enp0s9
 iface enp0s9 inet manual
-        up ip link set $IFACE promisc on
+        up ip link set \$IFACE promisc on
+EOF
+
+$ tee /etc/network/interfaces.d/br0 <<EOF
+auto br0
+iface br0 inet manual
+    bridge_ports enp0s9
 EOF
 
 # Now reboot your machine for the changes to take effect, runing `ip a` should
@@ -326,7 +353,41 @@ EOF
 
 ## Creating the echo-chamber
 
+```bash
+# We're going to start by giving the default user permissions to work with 
+# docker so we won't run in to weird permission sitautations later on.
+$ su -pc "usermod -a -G docker $USER"
 
+# Reset your environment by logging out and logging in again for the changes
+# to take effect.
+
+# We're going to create a quick yaml file which contains everything we need to
+# initialize and run our echo server
+$ tee echo-server.yml <<EOF
+
+version: '3.7'
+
+services:
+    echo-server:
+        image: alpine:latest
+        entrypoint: nc -lk -l -u -p 1337 -e /bin/cat
+        restart: always
+        networks:
+            echo-network:
+                ipv4_address: 192.168.1.2
+
+networks:
+    echo-network:
+        name: echo-network
+        driver: macvlan
+        driver_opts:
+            parent: br0
+        ipam:
+            config:
+                - subnet: 192.168.1.0/24        
+
+EOF
+```
 
 # Validation
 With all the machines running we are going to log in to our client machine and then bounce some data off the docker container.
